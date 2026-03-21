@@ -64,7 +64,7 @@ def get_language_display_name(language_pair):
     
     return source_name if source_name != source_lang else language_pair
 
-def get_available_recipes(recipes_dir="/home/owusus/Documents/GitHub/nsanku/recipes"):
+def get_available_recipes(recipes_dir="recipes"):
     recipes = []
     for file in os.listdir(recipes_dir):
         if file.endswith(".py") and file != "__init__.py":
@@ -81,7 +81,7 @@ def extract_recipe_name_from_filename(filename, available_recipes):
         return match.group(1)
     return "unknown_recipe"
 
-def combine_all_datasets(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combined"):
+def combine_all_datasets(input_dir="output_combined"):
     """
     Combine all CSV files from all directories into one main dataset
     """
@@ -420,7 +420,7 @@ def create_language_quadrant(df, title, filename, outdir):
         id_column='display_name', size_metric='model_coverage', color_metric='avg_score'
     )
 
-def generate_quadrant_reports(combined_df, outdir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+def generate_quadrant_reports(combined_df, outdir="reports_combined"):
     """
     Generate quadrant chart reports
     """
@@ -536,7 +536,7 @@ def create_stacked_bar_chart(data_dict, title, xlabel, filename, output_dir):
     fig.write_image(png_path, width=1200, height=800)
     return fig
 
-def collect_results(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combined"):
+def collect_results(input_dir="output_combined"):
     results, source_breakdown = {}, {}
     available_recipes = get_available_recipes()
 
@@ -563,7 +563,7 @@ def collect_results(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combi
                         continue
     return results, source_breakdown
 
-def generate_language_specific_reports(results, source_breakdown, output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+def generate_language_specific_reports(results, source_breakdown, output_dir="reports_combined"):
     """Generate individual reports for each language pair with source breakdown"""
     for language_pair, model_results in results.items():
         lang_output_dir = os.path.join(output_dir, language_pair)
@@ -647,7 +647,7 @@ def generate_language_specific_reports(results, source_breakdown, output_dir="/h
             f.write(f"\nBest Model: {summary['best_model']} ({summary['best_score']:.2f}%)\n")
             f.write(f"Average Score: {summary['average_score']:.2f}%\n")
 
-def generate_language_performance_summary(results, output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+def generate_language_performance_summary(results, output_dir="reports_combined"):
     """Generate a summary of how languages cumulatively performed across models"""
     if not results:
         return {}
@@ -680,7 +680,7 @@ def generate_language_performance_summary(results, output_dir="/home/owusus/Docu
     
     return language_performance
 
-def generate_overall_summary(results, source_breakdown, output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+def generate_overall_summary(results, source_breakdown, output_dir="reports_combined"):
     """Generate an overall summary across all language pairs"""
     if not results:
         return
@@ -730,7 +730,7 @@ def generate_overall_summary(results, source_breakdown, output_dir="/home/owusus
     
     return summary
 
-def generate_report(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combined", output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+def generate_report(input_dir="output_combined", output_dir="reports_combined"):
     """Main function to generate reports with quadrant analysis"""
     print("Generating performance reports with quadrant analysis...")
     

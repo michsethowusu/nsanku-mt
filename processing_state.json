@@ -1,0 +1,82 @@
+{
+  "twi-eng/twi-eng.csv/nllb-200-distilled-1.3B-ct2-int8": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-20T21:39:33.105825"
+  },
+  "twi-eng/twi-eng.csv/googletrans": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-20T21:44:51.059536"
+  },
+  "twi-eng/twi-eng.csv/claude-sonnet-4-6": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-20T22:15:00.392736"
+  },
+  "twi-eng/twi-eng.csv/claude-opus-4-6": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-20T22:48:18.862639"
+  },
+  "twi-eng/twi-eng.csv/gemini-2.5-pro": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-20T23:42:50.508804"
+  },
+  "twi-eng/twi-eng.csv/gemini-2.5-flash": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T00:00:54.226897"
+  },
+  "twi-eng/twi-eng.csv/gemini-3.1-pro-preview": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T01:14:47.313267"
+  },
+  "twi-eng/twi-eng.csv/gemini-3.1-flash-lite-preview": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T01:25:01.204188"
+  },
+  "ewe-eng/ewe-eng.csv/gemini-3.1-pro-preview": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T02:25:01.204188"
+  },
+  "ewe-eng/ewe-eng.csv/nllb-200-distilled-1.3B-ct2-int8": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T05:26:21.117179"
+  },
+  "ewe-eng/ewe-eng.csv/googletrans": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T05:31:12.228220"
+  },
+  "ewe-eng/ewe-eng.csv/claude-sonnet-4-6": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T05:44:17.863053"
+  },
+  "ewe-eng/ewe-eng.csv/claude-opus-4-6": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T06:01:15.538020"
+  },
+  "ewe-eng/ewe-eng.csv/gemini-2.5-pro": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T07:01:43.415765"
+  },
+  "ewe-eng/ewe-eng.csv/gemini-2.5-flash": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T07:22:48.387211"
+  },
+  "ewe-eng/ewe-eng.csv/gemini-3.1-flash-lite-preview": {
+    "translation_completed": true,
+    "rows_processed": 200,
+    "timestamp": "2026-03-21T07:32:35.661349"
+  }
+}

@@ -18,7 +18,7 @@ from typing import List, Dict, Tuple
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-OUTPUT_COMBINED_PATH = "/home/owusus/Documents/GitHub/nsanku/output_combined"
+OUTPUT_COMBINED_PATH = "output_combined"
 BATCH_SIZE = 64  # Increased for CPU (more RAM available than GPU VRAM)
 DEBUG_MODE = True
 # ==============================================================================

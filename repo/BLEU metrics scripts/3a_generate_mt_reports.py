@@ -1,6 +1,6 @@
 """
 generate_mt_reports.py
-Generate comprehensive reports for MT evaluation metrics: BLEU, chrF, COMET, and Average
+Generate comprehensive reports for MT evaluation metrics: BLEU (corpus-level), chrF (corpus and sentence-level)
 """
 
 import os
@@ -58,7 +58,7 @@ def get_language_display_name(language_pair):
     
     return source_name if source_name != source_lang else language_pair
 
-def get_available_recipes(recipes_dir="/home/owusus/Documents/GitHub/nsanku/recipes"):
+def get_available_recipes(recipes_dir="/home/owusus/Documents/GitHub/nsanku-mt/recipes"):
     """Get list of available recipe names"""
     recipes = []
     if os.path.exists(recipes_dir):
@@ -78,7 +78,7 @@ def extract_recipe_name_from_filename(filename, available_recipes):
         return match.group(1)
     return "unknown_recipe"
 
-def combine_all_datasets(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combined"):
+def combine_all_datasets(input_dir="/home/owusus/Documents/GitHub/nsanku-mt/output_combined"):
     """
     Combine all CSV files from all directories into one main dataset
     """
@@ -102,8 +102,8 @@ def combine_all_datasets(input_dir="/home/owusus/Documents/GitHub/nsanku/output_
             try:
                 df = pd.read_csv(os.path.join(root, file))
                 
-                # Check if we have the required metric columns
-                has_metrics = any(col in df.columns for col in ['bleu_score', 'chrf_score', 'comet_score', 'avg_score'])
+                # Check if we have the required metric columns (new column names)
+                has_metrics = any(col in df.columns for col in ['corpus_bleu', 'corpus_chrf', 'chrf_sentence'])
                 if not has_metrics:
                     continue
                 
@@ -183,14 +183,14 @@ def create_metric_comparison_chart(model_metrics, title, filename, output_dir):
         return
     
     models = list(model_metrics.keys())
-    metrics = ['BLEU', 'chrF', 'Average']
+    metrics = ['Corpus BLEU', 'Corpus chrF', 'Mean Sentence chrF']
     
     fig = go.Figure()
     
     colors = {
-        'BLEU': '#1f77b4',
-        'chrF': '#ff7f0e',
-        'Average': '#d62728'
+        'Corpus BLEU': '#1f77b4',
+        'Corpus chrF': '#ff7f0e',
+        'Mean Sentence chrF': '#2ca02c'
     }
     
     for metric in metrics:
@@ -228,25 +228,20 @@ def create_metric_comparison_chart(model_metrics, title, filename, output_dir):
     fig.write_html(html_path)
     fig.write_image(png_path)
 
-def collect_results(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combined"):
+def collect_results(input_dir="/home/owusus/Documents/GitHub/nsanku-mt/output_combined"):
     """
     Collect results for all models and language pairs
-    IMPORTANT: For BLEU, we recalculate at corpus level across all files
-    for each model+language pair combination
+    Uses stored corpus_bleu and corpus_chrf from the metric calculation step
     """
-    import sacrebleu
-    
-    # Storage for raw translation data (for corpus-level BLEU recalculation)
-    translation_data = defaultdict(lambda: {'hypotheses': [], 'references': []})
-    
-    # Storage for chrF scores (can be averaged)
-    chrf_results = {}
+    # Storage for aggregated results
+    corpus_bleu_results = {}
+    corpus_chrf_results = {}
+    sentence_chrf_results = {}
     
     print("Collecting results from processed data...")
     
     recipes = get_available_recipes()
     
-    # First pass: collect all translations for corpus-level BLEU
     for root, _, files in os.walk(input_dir):
         for file in files:
             if not file.endswith(".csv"):
@@ -263,103 +258,77 @@ def collect_results(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combi
             try:
                 df = pd.read_csv(os.path.join(root, file))
                 
-                # Collect translations for corpus-level BLEU
-                if 'translated' in df.columns and 'ref' in df.columns:
+                # Check for new metric columns
+                has_corpus_bleu = 'corpus_bleu' in df.columns
+                has_corpus_chrf = 'corpus_chrf' in df.columns
+                has_sentence_chrf = 'chrf_sentence' in df.columns
+                
+                if not (has_corpus_bleu or has_corpus_chrf):
+                    continue
+                
+                # Get valid rows (non-null sentence chrF indicates valid pairs)
+                if has_sentence_chrf:
+                    valid_mask = df['chrf_sentence'].notna()
+                else:
+                    # Fallback: check for valid translations
                     valid_mask = (
                         df['translated'].notna() & 
                         df['ref'].notna() & 
-                        (df['translated'] != 'nan') & 
-                        (df['ref'] != 'nan') &
                         (df['translated'].astype(str).str.strip() != '') &
                         (df['ref'].astype(str).str.strip() != '')
                     )
-                    
-                    if valid_mask.any():
-                        key = (language_pair, recipe)
-                        translation_data[key]['hypotheses'].extend(
-                            df.loc[valid_mask, 'translated'].astype(str).str.strip().tolist()
-                        )
-                        translation_data[key]['references'].extend(
-                            df.loc[valid_mask, 'ref'].astype(str).str.strip().tolist()
-                        )
                 
-                # Collect chrF scores for averaging
-                if 'chrf_score' in df.columns:
-                    if language_pair not in chrf_results:
-                        chrf_results[language_pair] = {}
-                    
-                    # Average chrF for this file
-                    chrf_avg = df['chrf_score'].mean()
-                    if recipe in chrf_results[language_pair]:
-                        # If we have multiple files, collect them for averaging
-                        if not isinstance(chrf_results[language_pair][recipe], list):
-                            chrf_results[language_pair][recipe] = [chrf_results[language_pair][recipe]]
-                        chrf_results[language_pair][recipe].append(chrf_avg)
-                    else:
-                        chrf_results[language_pair][recipe] = chrf_avg
+                if not valid_mask.any():
+                    continue
+                
+                # Initialize language pair dicts if needed
+                if language_pair not in corpus_bleu_results:
+                    corpus_bleu_results[language_pair] = {}
+                    corpus_chrf_results[language_pair] = {}
+                    sentence_chrf_results[language_pair] = {}
+                
+                # Collect corpus-level metrics (these are the same for all rows in a file)
+                # We take the first valid row's value since they're all identical
+                if has_corpus_bleu:
+                    corpus_bleu_results[language_pair][recipe] = df.loc[valid_mask, 'corpus_bleu'].iloc[0]
+                
+                if has_corpus_chrf:
+                    corpus_chrf_results[language_pair][recipe] = df.loc[valid_mask, 'corpus_chrf'].iloc[0]
+                
+                # Collect mean sentence-level chrF (average across valid sentences)
+                if has_sentence_chrf:
+                    sentence_chrf_results[language_pair][recipe] = df.loc[valid_mask, 'chrf_sentence'].mean()
                 
             except Exception as e:
                 print(f"Error processing {file}: {e}")
                 continue
     
-    # Second pass: calculate corpus-level BLEU for each model+language pair
-    print("\nCalculating corpus-level BLEU scores for each model+language pair...")
-    bleu_results = {}
-    
-    for (language_pair, recipe), data in tqdm(translation_data.items(), desc="Computing BLEU"):
-        hypotheses = data['hypotheses']
-        references = data['references']
-        
-        if hypotheses and references:
-            try:
-                refs = [[ref] for ref in references]
-                bleu = sacrebleu.corpus_bleu(hypotheses, refs)
-                
-                if language_pair not in bleu_results:
-                    bleu_results[language_pair] = {}
-                bleu_results[language_pair][recipe] = bleu.score
-                
-            except Exception as e:
-                print(f"  Error calculating BLEU for {language_pair}/{recipe}: {e}")
-    
-    # Average chrF scores if we have multiple files per model
-    for lang_pair in chrf_results:
-        for recipe in chrf_results[lang_pair]:
-            if isinstance(chrf_results[lang_pair][recipe], list):
-                chrf_results[lang_pair][recipe] = np.mean(chrf_results[lang_pair][recipe])
-    
     # Combine results
     results = {
-        'bleu': bleu_results,
-        'chrf': chrf_results,
-        'average': {}
+        'corpus_bleu': corpus_bleu_results,
+        'corpus_chrf': corpus_chrf_results,
+        'sentence_chrf': sentence_chrf_results
     }
     
-    # Calculate averages
-    for language_pair in bleu_results:
-        results['average'][language_pair] = {}
-        for recipe in bleu_results[language_pair]:
-            bleu_score = bleu_results[language_pair].get(recipe, 0)
-            chrf_score = chrf_results.get(language_pair, {}).get(recipe, 0)
-            results['average'][language_pair][recipe] = (bleu_score + chrf_score) / 2
+    print(f"\n✓ Collected results for:")
+    print(f"  - {len(corpus_bleu_results)} language pairs with corpus BLEU")
+    print(f"  - {len(corpus_chrf_results)} language pairs with corpus chrF")
+    print(f"  - {len(sentence_chrf_results)} language pairs with sentence chrF")
     
     # Note: source_breakdown is not implemented in this version
-    # since we're doing corpus-level calculation
     source_breakdown = {}
-    
-    print(f"\n✓ Calculated BLEU for {len(translation_data)} model+language combinations")
     
     return results, source_breakdown
 
 def generate_language_specific_reports(results, source_breakdown, 
-                                       output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+                                       output_dir="/home/owusus/Documents/GitHub/nsanku-mt/reports_combined"):
     """
     Generate individual reports for each language pair with all metrics
     """
     print("Generating language-specific reports...")
     
-    # Get all language pairs (from average results)
-    language_pairs = results['average'].keys()
+    # Get all language pairs (from corpus_bleu results)
+    language_pairs = results['corpus_bleu'].keys()
     
     for language_pair in language_pairs:
         print(f"Processing {language_pair}...")
@@ -370,11 +339,17 @@ def generate_language_specific_reports(results, source_breakdown,
         # Collect all metrics for this language pair
         model_metrics = {}
         
-        for model in results['average'][language_pair].keys():
+        # Get all models for this language pair
+        all_models = set()
+        for metric_dict in [results['corpus_bleu'], results['corpus_chrf'], results['sentence_chrf']]:
+            if language_pair in metric_dict:
+                all_models.update(metric_dict[language_pair].keys())
+        
+        for model in all_models:
             model_metrics[model] = {
-                'BLEU': results['bleu'][language_pair].get(model, 0),
-                'chrF': results['chrf'][language_pair].get(model, 0),
-                'Average': results['average'][language_pair].get(model, 0)
+                'Corpus BLEU': results['corpus_bleu'].get(language_pair, {}).get(model, 0),
+                'Corpus chrF': results['corpus_chrf'].get(language_pair, {}).get(model, 0),
+                'Mean Sentence chrF': results['sentence_chrf'].get(language_pair, {}).get(model, 0)
             }
         
         if not model_metrics:
@@ -390,10 +365,16 @@ def generate_language_specific_reports(results, source_breakdown,
         )
         
         # Generate individual metric charts
-        for metric_name, metric_key in [('BLEU', 'bleu'), ('chrF', 'chrf'), ('Average', 'average')]:
-            if language_pair in results[metric_key]:
+        metric_configs = [
+            ('Corpus BLEU', 'corpus_bleu', results['corpus_bleu']),
+            ('Corpus chrF', 'corpus_chrf', results['corpus_chrf']),
+            ('Mean Sentence chrF', 'sentence_chrf', results['sentence_chrf'])
+        ]
+        
+        for metric_name, metric_key, metric_data in metric_configs:
+            if language_pair in metric_data and metric_data[language_pair]:
                 create_horizontal_bar_chart(
-                    results[metric_key][language_pair],
+                    metric_data[language_pair],
                     f'{metric_name} Scores for {language_pair}',
                     f'{metric_name} Score',
                     f'{metric_key}_scores',
@@ -402,34 +383,35 @@ def generate_language_specific_reports(results, source_breakdown,
         
         # Generate CSV report
         report_data = []
+        # Sort by Corpus BLEU as primary metric
         for model, metrics in sorted(model_metrics.items(), 
-                                    key=lambda x: x[1]['Average'], reverse=True):
+                                    key=lambda x: x[1]['Corpus BLEU'], reverse=True):
             report_data.append({
                 'Model': model,
-                'BLEU': f"{metrics['BLEU']:.2f}",
-                'chrF': f"{metrics['chrF']:.2f}",
-                'Average': f"{metrics['Average']:.2f}",
-                'BLEU_raw': metrics['BLEU'],
-                'chrF_raw': metrics['chrF'],
-                'Average_raw': metrics['Average']
+                'Corpus BLEU': f"{metrics['Corpus BLEU']:.2f}",
+                'Corpus chrF': f"{metrics['Corpus chrF']:.2f}",
+                'Mean Sentence chrF': f"{metrics['Mean Sentence chrF']:.2f}",
+                'Corpus BLEU_raw': metrics['Corpus BLEU'],
+                'Corpus chrF_raw': metrics['Corpus chrF'],
+                'Mean Sentence chrF_raw': metrics['Mean Sentence chrF']
             })
         
         report_df = pd.DataFrame(report_data)
         report_df.to_csv(os.path.join(lang_output_dir, 'detailed_report.csv'), index=False)
         
         # Generate summary
-        best_model_by_avg = max(model_metrics.items(), key=lambda x: x[1]['Average'])
+        best_model_by_bleu = max(model_metrics.items(), key=lambda x: x[1]['Corpus BLEU'])
         
         summary = {
             'language_pair': language_pair,
             'timestamp': datetime.now().isoformat(),
             'models': {
-                'bleu': results['bleu'][language_pair],
-                'chrf': results['chrf'][language_pair],
-                'average': results['average'][language_pair]
+                'corpus_bleu': results['corpus_bleu'].get(language_pair, {}),
+                'corpus_chrf': results['corpus_chrf'].get(language_pair, {}),
+                'sentence_chrf': results['sentence_chrf'].get(language_pair, {})
             },
-            'best_model': best_model_by_avg[0],
-            'best_model_scores': best_model_by_avg[1]
+            'best_model': best_model_by_bleu[0],
+            'best_model_scores': best_model_by_bleu[1]
         }
         
         with open(os.path.join(lang_output_dir, 'summary_report.json'), 'w') as f:
@@ -439,41 +421,41 @@ def generate_language_specific_reports(results, source_breakdown,
         with open(os.path.join(lang_output_dir, 'summary.txt'), 'w') as f:
             f.write(f"MT Evaluation Results for {language_pair}\n")
             f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write("\nModel Performance (sorted by Average score):\n")
-            f.write("-" * 70 + "\n")
-            f.write(f"{'Model':<30} {'BLEU':>10} {'chrF':>10} {'Average':>10}\n")
-            f.write("-" * 70 + "\n")
+            f.write("\nModel Performance (sorted by Corpus BLEU score):\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"{'Model':<30} {'Corpus BLEU':>12} {'Corpus chrF':>12} {'Mean Sent chrF':>15}\n")
+            f.write("-" * 80 + "\n")
             for model, metrics in sorted(model_metrics.items(), 
-                                        key=lambda x: x[1]['Average'], reverse=True):
-                f.write(f"{model:<30} {metrics['BLEU']:>10.2f} {metrics['chrF']:>10.2f} "
-                       f"{metrics['Average']:>10.2f}\n")
-            f.write("-" * 70 + "\n")
-            f.write(f"\nBest Model (by Average): {best_model_by_avg[0]}\n")
-            f.write(f"  BLEU: {best_model_by_avg[1]['BLEU']:.2f}\n")
-            f.write(f"  chrF: {best_model_by_avg[1]['chrF']:.2f}\n")
-            f.write(f"  Average: {best_model_by_avg[1]['Average']:.2f}\n")
+                                        key=lambda x: x[1]['Corpus BLEU'], reverse=True):
+                f.write(f"{model:<30} {metrics['Corpus BLEU']:>12.2f} {metrics['Corpus chrF']:>12.2f} "
+                       f"{metrics['Mean Sentence chrF']:>15.2f}\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"\nBest Model (by Corpus BLEU): {best_model_by_bleu[0]}\n")
+            f.write(f"  Corpus BLEU: {best_model_by_bleu[1]['Corpus BLEU']:.2f}\n")
+            f.write(f"  Corpus chrF: {best_model_by_bleu[1]['Corpus chrF']:.2f}\n")
+            f.write(f"  Mean Sentence chrF: {best_model_by_bleu[1]['Mean Sentence chrF']:.2f}\n")
 
 def generate_overall_summary(results, source_breakdown, 
-                            output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+                            output_dir="/home/owusus/Documents/GitHub/nsanku-mt/reports_combined"):
     """Generate overall summary across all language pairs and metrics"""
-    if not results['average']:
+    if not results['corpus_bleu']:
         return
     
     print("Generating overall summary...")
     
     # Calculate overall model performance (average across all language pairs)
     all_models = set()
-    for lang_results in results['average'].values():
+    for lang_results in results['corpus_bleu'].values():
         all_models.update(lang_results.keys())
     
     model_performance = {
-        'bleu': {},
-        'chrf': {},
-        'average': {}
+        'corpus_bleu': {},
+        'corpus_chrf': {},
+        'sentence_chrf': {}
     }
     
     for model in all_models:
-        for metric_key in ['bleu', 'chrf', 'average']:
+        for metric_key in ['corpus_bleu', 'corpus_chrf', 'sentence_chrf']:
             scores = []
             for lang_results in results[metric_key].values():
                 if model in lang_results:
@@ -482,7 +464,13 @@ def generate_overall_summary(results, source_breakdown,
                 model_performance[metric_key][model] = np.mean(scores)
     
     # Generate overall model performance charts
-    for metric_name, metric_key in [('BLEU', 'bleu'), ('chrF', 'chrf'), ('Average', 'average')]:
+    metric_configs = [
+        ('Corpus BLEU', 'corpus_bleu'),
+        ('Corpus chrF', 'corpus_chrf'),
+        ('Mean Sentence chrF', 'sentence_chrf')
+    ]
+    
+    for metric_name, metric_key in metric_configs:
         if model_performance[metric_key]:
             create_horizontal_bar_chart(
                 model_performance[metric_key],
@@ -496,9 +484,9 @@ def generate_overall_summary(results, source_breakdown,
     model_metrics_overall = {}
     for model in all_models:
         model_metrics_overall[model] = {
-            'BLEU': model_performance['bleu'].get(model, 0),
-            'chrF': model_performance['chrf'].get(model, 0),
-            'Average': model_performance['average'].get(model, 0)
+            'Corpus BLEU': model_performance['corpus_bleu'].get(model, 0),
+            'Corpus chrF': model_performance['corpus_chrf'].get(model, 0),
+            'Mean Sentence chrF': model_performance['sentence_chrf'].get(model, 0)
         }
     
     create_metric_comparison_chart(
@@ -508,39 +496,39 @@ def generate_overall_summary(results, source_breakdown,
         output_dir
     )
     
-    # Calculate language performance
+    # Calculate language performance (using corpus BLEU as primary metric)
     language_performance = {}
-    for language_pair in results['average'].keys():
-        scores = list(results['average'][language_pair].values())
+    for language_pair in results['corpus_bleu'].keys():
+        scores = list(results['corpus_bleu'][language_pair].values())
         if scores:
             display_name = get_language_display_name(language_pair)
             language_performance[display_name] = np.mean(scores)
     
     create_horizontal_bar_chart(
         language_performance,
-        'Language Performance Across Models (Average Score)',
-        'Average Score',
+        'Language Performance Across Models (Corpus BLEU)',
+        'Corpus BLEU Score',
         'language_performance',
         output_dir
     )
     
     # Save overall summary
-    best_model = max(model_performance['average'].items(), 
-                    key=lambda x: x[1]) if model_performance['average'] else ("none", 0)
+    best_model = max(model_performance['corpus_bleu'].items(), 
+                    key=lambda x: x[1]) if model_performance['corpus_bleu'] else ("none", 0)
     best_language = max(language_performance.items(), 
                        key=lambda x: x[1]) if language_performance else ("none", 0)
     
     summary = {
         'timestamp': datetime.now().isoformat(),
-        'total_language_pairs': len(results['average']),
+        'total_language_pairs': len(results['corpus_bleu']),
         'total_models': len(all_models),
         'model_performance': model_performance,
         'language_performance': language_performance,
         'best_overall_model': best_model[0],
         'best_overall_scores': {
-            'BLEU': model_performance['bleu'].get(best_model[0], 0),
-            'chrF': model_performance['chrf'].get(best_model[0], 0),
-            'Average': best_model[1]
+            'Corpus BLEU': model_performance['corpus_bleu'].get(best_model[0], 0),
+            'Corpus chrF': model_performance['corpus_chrf'].get(best_model[0], 0),
+            'Mean Sentence chrF': model_performance['sentence_chrf'].get(best_model[0], 0)
         },
         'best_language': best_language[0],
         'best_language_score': best_language[1]
@@ -552,44 +540,46 @@ def generate_overall_summary(results, source_breakdown,
     # Create text summary
     with open(os.path.join(output_dir, 'overall_summary.txt'), 'w') as f:
         f.write("OVERALL MT EVALUATION SUMMARY\n")
-        f.write("=" * 70 + "\n")
+        f.write("=" * 80 + "\n")
         f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Total Language Pairs: {summary['total_language_pairs']}\n")
         f.write(f"Total Models: {summary['total_models']}\n\n")
         
         f.write("BEST OVERALL MODEL\n")
-        f.write("-" * 70 + "\n")
+        f.write("-" * 80 + "\n")
         f.write(f"Model: {summary['best_overall_model']}\n")
-        f.write(f"  BLEU: {summary['best_overall_scores']['BLEU']:.2f}\n")
-        f.write(f"  chrF: {summary['best_overall_scores']['chrF']:.2f}\n")
-        f.write(f"  Average: {summary['best_overall_scores']['Average']:.2f}\n\n")
+        f.write(f"  Corpus BLEU: {summary['best_overall_scores']['Corpus BLEU']:.2f}\n")
+        f.write(f"  Corpus chrF: {summary['best_overall_scores']['Corpus chrF']:.2f}\n")
+        f.write(f"  Mean Sentence chrF: {summary['best_overall_scores']['Mean Sentence chrF']:.2f}\n\n")
         
-        f.write("MODEL RANKINGS (by Average Score)\n")
-        f.write("-" * 70 + "\n")
-        f.write(f"{'Rank':<6} {'Model':<30} {'BLEU':>10} {'chrF':>10} {'Average':>10}\n")
-        f.write("-" * 70 + "\n")
+        f.write("MODEL RANKINGS (by Corpus BLEU Score)\n")
+        f.write("-" * 80 + "\n")
+        f.write(f"{'Rank':<6} {'Model':<30} {'Corpus BLEU':>12} {'Corpus chrF':>12} {'Mean Sent chrF':>15}\n")
+        f.write("-" * 80 + "\n")
         
         sorted_models = sorted(model_metrics_overall.items(), 
-                             key=lambda x: x[1]['Average'], reverse=True)
+                             key=lambda x: x[1]['Corpus BLEU'], reverse=True)
         for rank, (model, metrics) in enumerate(sorted_models, 1):
-            f.write(f"{rank:<6} {model:<30} {metrics['BLEU']:>10.2f} {metrics['chrF']:>10.2f} "
-                   f"{metrics['Average']:>10.2f}\n")
+            f.write(f"{rank:<6} {model:<30} {metrics['Corpus BLEU']:>12.2f} {metrics['Corpus chrF']:>12.2f} "
+                   f"{metrics['Mean Sentence chrF']:>15.2f}\n")
     
     return summary
 
-def generate_report(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combined", 
-                   output_dir="/home/owusus/Documents/GitHub/nsanku/reports_combined"):
+def generate_report(input_dir="/home/owusus/Documents/GitHub/nsanku-mt/output_combined", 
+                   output_dir="/home/owusus/Documents/GitHub/nsanku-mt/reports_combined"):
     """Main function to generate all MT evaluation reports"""
-    print("="*70)
+    print("="*80)
     print("GENERATING MT EVALUATION REPORTS")
-    print("="*70)
+    print("="*80)
+    print("Metrics: Corpus BLEU, Corpus chrF, Mean Sentence chrF")
+    print("="*80)
     
     os.makedirs(output_dir, exist_ok=True)
     
     # Collect results
     results, source_breakdown = collect_results(input_dir)
     
-    if not results['average']:
+    if not results['corpus_bleu']:
         print("No processed results found. Please run metric calculations first.")
         return
     
@@ -597,20 +587,20 @@ def generate_report(input_dir="/home/owusus/Documents/GitHub/nsanku/output_combi
     generate_language_specific_reports(results, source_breakdown, output_dir)
     overall_summary = generate_overall_summary(results, source_breakdown, output_dir)
     
-    print(f"\n{'='*70}")
+    print(f"\n{'='*80}")
     print("REPORTS GENERATED SUCCESSFULLY")
-    print(f"{'='*70}")
+    print(f"{'='*80}")
     print(f"Output directory: {output_dir}")
     
     if overall_summary:
         print(f"\nBest Overall Model: {overall_summary['best_overall_model']}")
-        print(f"  BLEU: {overall_summary['best_overall_scores']['BLEU']:.2f}")
-        print(f"  chrF: {overall_summary['best_overall_scores']['chrF']:.2f}")
-        print(f"  Average: {overall_summary['best_overall_scores']['Average']:.2f}")
+        print(f"  Corpus BLEU: {overall_summary['best_overall_scores']['Corpus BLEU']:.2f}")
+        print(f"  Corpus chrF: {overall_summary['best_overall_scores']['Corpus chrF']:.2f}")
+        print(f"  Mean Sentence chrF: {overall_summary['best_overall_scores']['Mean Sentence chrF']:.2f}")
         print(f"\nBest Language: {overall_summary['best_language']} "
-              f"({overall_summary['best_language_score']:.2f})")
+              f"(Corpus BLEU: {overall_summary['best_language_score']:.2f})")
     
-    print(f"{'='*70}")
+    print(f"{'='*80}")
     
     return results, overall_summary
 
