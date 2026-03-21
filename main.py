@@ -3,7 +3,6 @@ import pandas as pd
 import re
 import sys
 import json
-import random
 import time
 from datetime import timedelta
 
@@ -15,7 +14,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
 def setup_api_keys():
     """Ensure .env exists (omitted full logic for brevity, keeping your exact previous logic is fine here)"""
-    # Keep your existing setup_api_key logic here...
     env_file = '.env'
     if not os.path.exists(env_file):
         print("No .env file found. Creating empty template.")
@@ -55,38 +53,20 @@ def save_processing_state(state, state_file="processing_state.json"):
     except Exception as e:
         print(f"Error saving state: {str(e)}")
 
-def get_common_sentence_ids(input_dir, sample_size=200, random_seed=42):
-    csv_files = [f for f in os.listdir(input_dir) if f.endswith(".csv")]
-    if not csv_files:
-        raise ValueError("No CSV files found in input directory")
-    
-    first_file = os.path.join(input_dir, csv_files[0])
-    first_df = pd.read_csv(first_file)
-    all_sentence_ids = list(range(len(first_df)))
-    random.seed(random_seed)
-    selected_ids = random.sample(all_sentence_ids, min(sample_size, len(all_sentence_ids)))
-    selected_ids.sort()
-    return selected_ids
-
-def load_sampled_data(input_dir, sentence_ids):
-    samples = {}
+def load_all_data(input_dir):
+    """Loads all rows from the CSV files in the input directory."""
+    datasets = {}
     csv_files = [f for f in os.listdir(input_dir) if f.endswith(".csv")]
     for file in csv_files:
         input_path = os.path.join(input_dir, file)
-        df = pd.read_csv(input_path)
-        if len(df) > max(sentence_ids):
-            samples[file] = df.iloc[sentence_ids].reset_index(drop=True)
-        else:
-            available_ids = [sid for sid in sentence_ids if sid < len(df)]
-            samples[file] = df.iloc[available_ids].reset_index(drop=True)
-    return samples
+        datasets[file] = pd.read_csv(input_path)
+    return datasets
 
 def run_translation_only(input_dir, output_dir, models, state):
-    print("Running translation only...")
+    print("Running translation on all sentences...")
     print(f"Initial state: {len(state)} entries")
     
-    sentence_ids = get_common_sentence_ids(input_dir, sample_size=200, random_seed=42)
-    samples = load_sampled_data(input_dir, sentence_ids)
+    datasets = load_all_data(input_dir)
     
     total_tasks = 0
     completed_tasks = 0
@@ -114,7 +94,7 @@ def run_translation_only(input_dir, output_dir, models, state):
             
         lang_pair_dir = os.path.join(output_dir, f"{source_lang}-{target_lang}")
         os.makedirs(lang_pair_dir, exist_ok=True)
-        sampled_df = samples[file]
+        df_to_process = datasets[file]
         
         for model in models:
             safe_model_name = model['model_id'].replace('/', '_')
@@ -132,7 +112,7 @@ def run_translation_only(input_dir, output_dir, models, state):
             try:
                 # Use the new universal recipe
                 result_df = universal_recipe.translation_only(
-                    df=sampled_df, 
+                    df=df_to_process, 
                     source_lang=source_lang, 
                     target_lang=target_lang,
                     model_id=model['model_id'],

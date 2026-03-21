@@ -20,7 +20,7 @@ import sacrebleu
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-OUTPUT_COMBINED_PATH = "/home/owusus/Documents/GitHub/nsanku/output_combined"
+OUTPUT_COMBINED_PATH = "/home/owusus/Documents/GitHub/nsanku-mt/output_combined"
 DEBUG_MODE = True
 # ==============================================================================
 

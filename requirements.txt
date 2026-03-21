@@ -12,12 +12,21 @@ kaleido>=0.2.1
 # Progress bars
 tqdm>=4.66.0
 
-ctranslate2>=3.22.0
+# API & Web Requests
+requests
 git+https://github.com/michsethowusu/py-googletrans.git 
 
+# LLM Providers
 google-generativeai
 openai
-python-dotenv
 anthropic
-nest_asyncio>=1.5.0
 google-genai
+
+# Utilities
+python-dotenv
+nest_asyncio>=1.5.0
+
+# Similarity & Local Models
+sentence-transformers
+transformers
+torch

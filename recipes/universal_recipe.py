@@ -2,6 +2,7 @@ import pandas as pd
 import time
 import os
 import re
+import requests
 from openai import OpenAI
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer, util
@@ -129,7 +130,6 @@ def translation_only(df, source_lang, target_lang, model_id, provider):
     }
 
     # googletrans language code mapping
-    # Maps filename codes (e.g. from ewe-eng.csv) → googletrans BCP-47 codes
     GOOGLETRANS_LANG_MAP = {
         'en':  'en',
         'eng': 'en',
@@ -147,96 +147,75 @@ def translation_only(df, source_lang, target_lang, model_id, provider):
         'pl':  'pl',
         'tr':  'tr',
         'vi':  'vi',
-        'ewe': 'ee',   # Ewe
-        'twi': 'ak',   # Twi / Akan
-        'aka': 'ak',   # Akan
-        'gaa': 'gaa',  # Ga (googletrans supports 'gaa')
+        'ewe': 'ee',
+        'twi': 'ak',
+        'aka': 'ak',
+        'gaa': 'gaa',
     }
 
-    # 0. Handle CTranslate2 quantized NLLB (3.3B ct2-int8)
-    if provider == "nllb-ct2":
-        import ctranslate2
-        import torch
-        from transformers import NllbTokenizer
-        from huggingface_hub import snapshot_download
-
+    # 0. Handle NLLB via the high-throughput API (Replaces local model loading)
+    if provider in ["nllb", "nllb-api", "nllb-ct2"]:
         src_bcp47 = NLLB_LANG_MAP.get(source_lang, f"{source_lang}_Latn")
         tgt_bcp47 = NLLB_LANG_MAP.get(target_lang, f"{target_lang}_Latn")
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        compute_type = "int8_float16" if device == "cuda" else "int8"
-        print(f"CTranslate2 device={device}, compute_type={compute_type}")
-
-        # CTranslate2 needs a local path — download from HF hub if not already cached
-        print(f"Downloading/loading model {model_id}...")
-        local_model_path = snapshot_download(repo_id=model_id)
-        print(f"Model ready at: {local_model_path}")
-
-        translator_ct2 = ctranslate2.Translator(
-            local_model_path,
-            device=device,
-            compute_type=compute_type,
-        )
-        tokenizer = NllbTokenizer.from_pretrained(model_id, src_lang=src_bcp47)
+        # Allow environment variable override for self-hosted instances
+        api_base_url = os.getenv("NLLB_API_URL", "https://winstxnhdw-nllb-api.hf.space")
+        endpoint = f"{api_base_url.rstrip('/')}/api/v4/translator"
+        
+        print(f"Routing NLLB translations through API: {api_base_url}")
 
         for i, row in result_df.iterrows():
             text = row['text']
             print(f"Translating {i+1}/{total_texts}: {text[:50]}...")
+            
             try:
-                tokens = tokenizer.convert_ids_to_tokens(
-                    tokenizer.encode(text, add_special_tokens=True)
-                )
-                results = translator_ct2.translate_batch(
-                    [tokens],
-                    target_prefix=[[tgt_bcp47]],
-                    beam_size=4,
-                    max_decoding_length=256,
-                )
-                output_tokens = results[0].hypotheses[0][1:]  # strip the lang token prefix
-                translation = tokenizer.convert_tokens_to_string(output_tokens)
+                # The API expects text, source, and target as query parameters
+                params = {
+                    "text": text,
+                    "source": src_bcp47,
+                    "target": tgt_bcp47
+                }
+                
+                response = requests.get(endpoint, params=params, timeout=30)
+                response.raise_for_status()
+                
+                # Robustly parse response whether it returns plain text or JSON
+                try:
+                    data = response.json()
+                    if isinstance(data, dict):
+                        translation = data.get('translation', data.get('text', response.text))
+                    else:
+                        translation = str(data)
+                except ValueError:
+                    # If not valid JSON, treat as plain text
+                    translation = response.text.strip()
+                    
+                # Clean up stray quotes if the API returned a raw JSON string
+                if translation.startswith('"') and translation.endswith('"'):
+                    translation = translation[1:-1]
+                    
                 result_df.at[i, 'translated'] = translation
                 print(f"  → {translation[:50]}...")
-            except Exception as e:
-                print(f"  → [Failed]: {e}")
+                
+            except requests.exceptions.RequestException as e:
+                print(f"  → [API Error]: {e}")
                 result_df.at[i, 'translated'] = ""
 
         return result_df
 
-    # 1. Handle Local/Transformers Models (NLLB and Opus-MT)
-    if provider in ["nllb", "opus-mt"]:
+    # 1. Handle Opus-MT (Retained Local/Transformers Model logic)
+    elif provider == "opus-mt":
         from transformers import pipeline
         import torch
 
-        # Batch size: larger = faster on GPU, reduce if you hit OOM
         NLLB_BATCH_SIZE = 16 if torch.cuda.is_available() else 4
 
-        if provider == "nllb":
-            src = NLLB_LANG_MAP.get(source_lang, f"{source_lang}_Latn")
-            tgt = NLLB_LANG_MAP.get(target_lang, f"{target_lang}_Latn")
+        try:
+            translator = pipeline('translation', model=model_id)
+        except Exception as e:
+            print(f"Could not load Opus-MT model {model_id}: {e}")
+            return result_df
 
-            use_fp16 = torch.cuda.is_available()
-
-            try:
-                translator = pipeline(
-                    task="translation_XX_to_YY",  # NLLB multilingual task; src/tgt_lang handle routing
-                    model=model_id,
-                    src_lang=src,
-                    tgt_lang=tgt,
-                    torch_dtype=torch.float16 if use_fp16 else torch.float32,
-                    device=0 if use_fp16 else -1,
-                )
-            except Exception as e:
-                print(f"Could not load NLLB model {model_id}: {e}")
-                return result_df
-
-        elif provider == "opus-mt":
-            try:
-                translator = pipeline('translation', model=model_id)
-            except Exception as e:
-                print(f"Could not load Opus-MT model {model_id}: {e}")
-                return result_df
-
-        # --- Batched inference ---
         texts = result_df['text'].tolist()
         translations = [''] * total_texts
 
@@ -247,9 +226,6 @@ def translation_only(df, source_lang, target_lang, model_id, provider):
             try:
                 results = translator(batch, batch_size=len(batch))
                 for j, res in enumerate(results):
-                    # NLLB pipeline returns a list of dicts per input when batched;
-                    # each item is either {'translation_text': ...} directly or
-                    # a list containing that dict — handle both
                     if isinstance(res, list):
                         res = res[0]
                     translation = res.get('translation_text', '')
@@ -257,7 +233,6 @@ def translation_only(df, source_lang, target_lang, model_id, provider):
                     print(f"  [{batch_start+j+1}] → {translation[:50]}...")
             except Exception as e:
                 print(f"  → [Batch failed]: {e}")
-                # Fall back to one-by-one for the failed batch
                 for j, text in enumerate(batch):
                     try:
                         out = translator(text)[0]
@@ -276,19 +251,13 @@ def translation_only(df, source_lang, target_lang, model_id, provider):
         import asyncio
         import nest_asyncio
 
-        # Apply nest_asyncio to allow nested event loops in Colab/Jupyter
         nest_asyncio.apply()
-
         translator_client = Translator()
 
-        # Map filename language codes to googletrans codes
         gt_src = GOOGLETRANS_LANG_MAP.get(source_lang, source_lang)
         gt_tgt = GOOGLETRANS_LANG_MAP.get(target_lang, target_lang)
         print(f"Google Translate: {source_lang} → {gt_src} | {target_lang} → {gt_tgt}")
 
-        # Exact same async pattern that was working before — one coroutine per call,
-        # one asyncio.run per row. Don't change this; googletrans is fragile with
-        # session reuse and nested gather patterns.
         async def fetch_translation(t, s, d):
             return await translator_client.translate(t, src=s, dest=d)
 
@@ -306,7 +275,7 @@ def translation_only(df, source_lang, target_lang, model_id, provider):
                 print(f"  → {result_df.at[i, 'translated'][:50]}...")
             except Exception as e:
                 print(f"  → [Failed]: {e}")
-            time.sleep(0.1)  # Minimal pause — just enough to avoid hammering Google
+            time.sleep(0.1)
 
         return result_df
 
