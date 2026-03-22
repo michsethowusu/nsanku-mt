@@ -1,25 +1,37 @@
 {
-  "timestamp": "2026-03-21T07:59:08.404494",
+  "timestamp": "2026-03-22T05:23:24.320615",
   "total_language_pairs": 2,
-  "total_models": 8,
+  "total_models": 20,
   "model_performance": {
-    "gemini-2.5-pro": 75.67012023925781,
-    "gemini-2.5-flash": 73.8194580078125,
-    "gemini-3.1-flash-lite-preview": 72.63502502441406,
-    "gemini-3.1-pro-preview": 82.45511627197266,
-    "nllb-200-distilled-1.3B-ct2-int8": 51.93624496459961,
-    "claude-sonnet-4-6": 54.55332899093628,
-    "googletrans": 80.7431287765503,
-    "claude-opus-4-6": 62.6267352104187
+    "gemini-3.1-flash-lite-preview": 72.63529968261719,
+    "minimax-m2.1": 40.33358371257782,
+    "kimi-k2-instruct-0905": 44.423702239990234,
+    "llama-3.2-1b-instruct": 10.789086282253265,
+    "gemma-3-1b-it": 12.179809629917145,
+    "claude-sonnet-4-6": 54.55358839035034,
+    "gemini-3-flash-preview": 78.01123046875,
+    "gemini-2.5-flash": 73.81967163085938,
+    "llama-4-maverick-17b-128e-instruct": 51.94597244262695,
+    "gemini-2.5-pro": 75.67073059082031,
+    "nllb-200-distilled-1.3B-ct2-int8": 51.93557357788086,
+    "mistral-large-3-675b-instruct-2512": 38.65445137023926,
+    "gpt-oss-120b": 40.16472578048706,
+    "deepseek-v3.2": 46.65351390838623,
+    "llama-3.1-405b-instruct": 40.40444152057171,
+    "googletrans": 80.74309825897217,
+    "gemini-3.1-pro-preview": 78.5567398071289,
+    "claude-opus-4-6": 62.62704038619995,
+    "gpt-5.1": 51.27218818664551,
+    "gemma-3-27b-it": 29.187493413686752
   },
   "language_performance": {
-    "ewe-eng": 66.6694712638855,
-    "twi-eng": 71.94031810760498
+    "ewe-eng": 45.32449586838484,
+    "twi-eng": 58.131698259711264
   },
-  "best_overall_model": "gemini-3.1-pro-preview",
-  "best_overall_score": 82.45511627197266,
+  "best_overall_model": "googletrans",
+  "best_overall_score": 80.74309825897217,
   "best_language": "twi-eng",
-  "best_language_score": 71.94031810760498,
+  "best_language_score": 58.131698259711264,
   "language_pairs": [
     "ewe-eng",
     "twi-eng"

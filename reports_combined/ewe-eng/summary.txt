@@ -1,15 +1,27 @@
 Translation Benchmark Results for ewe-eng
-Generated on: 2026-03-21 07:59:08
+Generated on: 2026-03-22 05:23:24
 
 Model Performance:
 googletrans: 80.46%
 gemini-3.1-pro-preview: 78.59%
+gemini-3-flash-preview: 77.93%
 gemini-2.5-pro: 75.58%
 gemini-2.5-flash: 75.05%
 gemini-3.1-flash-lite-preview: 72.55%
 nllb-200-distilled-1.3B-ct2-int8: 54.81%
 claude-opus-4-6: 54.32%
+llama-4-maverick-17b-128e-instruct: 50.01%
 claude-sonnet-4-6: 41.99%
+gpt-5.1: 36.35%
+minimax-m2.1: 32.24%
+deepseek-v3.2: 32.07%
+kimi-k2-instruct-0905: 28.98%
+mistral-large-3-675b-instruct-2512: 24.84%
+llama-3.1-405b-instruct: 24.49%
+gpt-oss-120b: 23.30%
+gemma-3-27b-it: 20.88%
+gemma-3-1b-it: 11.98%
+llama-3.2-1b-instruct: 10.07%
 
 Best Model: googletrans (80.46%)
-Average Score: 66.67%
+Average Score: 45.32%

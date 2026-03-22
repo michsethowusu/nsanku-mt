@@ -1,15 +1,27 @@
 Translation Benchmark Results for twi-eng
-Generated on: 2026-03-21 07:59:08
+Generated on: 2026-03-22 05:23:24
 
 Model Performance:
-gemini-3.1-pro-preview: 86.32%
 googletrans: 81.03%
+gemini-3.1-pro-preview: 78.52%
+gemini-3-flash-preview: 78.10%
 gemini-2.5-pro: 75.76%
 gemini-3.1-flash-lite-preview: 72.72%
 gemini-2.5-flash: 72.59%
 claude-opus-4-6: 70.93%
 claude-sonnet-4-6: 67.12%
-nllb-200-distilled-1.3B-ct2-int8: 49.07%
+gpt-5.1: 66.19%
+deepseek-v3.2: 61.24%
+kimi-k2-instruct-0905: 59.86%
+gpt-oss-120b: 57.03%
+llama-3.1-405b-instruct: 56.32%
+llama-4-maverick-17b-128e-instruct: 53.88%
+mistral-large-3-675b-instruct-2512: 52.47%
+nllb-200-distilled-1.3B-ct2-int8: 49.06%
+minimax-m2.1: 48.43%
+gemma-3-27b-it: 37.49%
+gemma-3-1b-it: 12.38%
+llama-3.2-1b-instruct: 11.51%
 
-Best Model: gemini-3.1-pro-preview (86.32%)
-Average Score: 71.94%
+Best Model: googletrans (81.03%)
+Average Score: 58.13%

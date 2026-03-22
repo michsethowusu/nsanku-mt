@@ -1,17 +1,29 @@
 {
   "language_pair": "ewe-eng",
-  "timestamp": "2026-03-21T07:59:08.193848",
+  "timestamp": "2026-03-22T05:23:24.086244",
   "models": {
-    "claude-sonnet-4-6": 41.989073753356934,
+    "gpt-5.1": 36.35131072998047,
+    "claude-sonnet-4-6": 41.99001979827881,
+    "kimi-k2-instruct-0905": 28.983871459960938,
+    "gemma-3-1b-it": 11.97766125202179,
     "claude-opus-4-6": 54.32433223724365,
-    "gemini-2.5-flash": 75.046630859375,
-    "googletrans": 80.45866966247559,
-    "nllb-200-distilled-1.3B-ct2-int8": 54.80746459960938,
+    "llama-4-maverick-17b-128e-instruct": 50.00958061218262,
+    "mistral-large-3-675b-instruct-2512": 24.84036636352539,
+    "gemini-2.5-flash": 75.046875,
+    "googletrans": 80.45934104919434,
+    "nllb-200-distilled-1.3B-ct2-int8": 54.80792236328125,
+    "llama-3.1-405b-instruct": 24.486040145158768,
+    "deepseek-v3.2": 32.071401596069336,
+    "minimax-m2.1": 32.2382276058197,
+    "gpt-oss-120b": 23.299818992614746,
     "gemini-2.5-pro": 75.58206176757812,
-    "gemini-3.1-pro-preview": 78.59431457519531,
-    "gemini-3.1-flash-lite-preview": 72.55322265625
+    "gemma-3-27b-it": 20.88235205411911,
+    "gemini-3.1-pro-preview": 78.59407043457031,
+    "llama-3.2-1b-instruct": 10.065782070159912,
+    "gemini-3-flash-preview": 77.92529296875,
+    "gemini-3.1-flash-lite-preview": 72.5535888671875
   },
-  "average_score": 66.6694712638855,
+  "average_score": 45.32449586838484,
   "best_model": "googletrans",
-  "best_score": 80.45866966247559
+  "best_score": 80.45934104919434
 }

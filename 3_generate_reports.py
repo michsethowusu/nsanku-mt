@@ -81,7 +81,7 @@ def extract_recipe_name_from_filename(filename, available_recipes):
         return match.group(1)
     return "unknown_recipe"
 
-def combine_all_datasets(input_dir="output_combined"):
+def combine_all_datasets(input_dir="output"):
     """
     Combine all CSV files from all directories into one main dataset
     """
@@ -536,7 +536,7 @@ def create_stacked_bar_chart(data_dict, title, xlabel, filename, output_dir):
     fig.write_image(png_path, width=1200, height=800)
     return fig
 
-def collect_results(input_dir="output_combined"):
+def collect_results(input_dir="output"):
     results, source_breakdown = {}, {}
     available_recipes = get_available_recipes()
 
@@ -730,7 +730,7 @@ def generate_overall_summary(results, source_breakdown, output_dir="reports_comb
     
     return summary
 
-def generate_report(input_dir="output_combined", output_dir="reports_combined"):
+def generate_report(input_dir="output", output_dir="reports_combined"):
     """Main function to generate reports with quadrant analysis"""
     print("Generating performance reports with quadrant analysis...")
     
